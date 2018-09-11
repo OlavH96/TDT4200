@@ -34,7 +34,7 @@ int main(int argc, char **argv) {
 	std::cout << "complete!" << std::endl;
 	if (sse) {
 		std::cout << "Running SSE test..." << std::endl;
-		sse_test(mesh);
+		sse_test(&mesh);
 		std::cout << "SSE test finished!" << std::endl;
 	} else {
 		rasterise(mesh, output, width, height);

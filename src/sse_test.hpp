@@ -7,4 +7,4 @@ union sse_float4 {
     float elements[4];
 };
 
-void sse_test(Mesh &);
+void sse_test(const Mesh *mesh);
