@@ -174,55 +174,42 @@ inline float4 convertClippingSpace( float4 const vertex,
  * @param  v0 triangle vertex
  * @param  v1 triangle vertex
  * @param  v2 triangle vertex
- * @param  x  screen pixel x-coordinate
- * @param  y  screen pixel y-coordinate
- * @return    barycentric weights of the pixel in relation to the triangle vertices
+ * @return precalculated values for this triangle
  */
-// float3 getTriangleBarycentricWeights( float4 const v0,
-// 									  float4 const v1,
-// 									  float4 const v2,
-// 									  unsigned int const x,
-// 									  unsigned int const y )
-// {
-// 	float3 res;
-// 	auto var0 = v1.y - v2.y;
-// 	auto var4 = v0.x - v2.x;
-// 	auto var5 = v2.x - v1.x;
-// 	auto divisor = (var0 * var4) + (var5 * (v0.y - v2.y));
-// 	auto var1 = x - v2.x;
-// 	auto var2 = y - v2.y;
-//
-// 	res.x = ((var0 * var1) + (var5 * var2)) / divisor;
-// 	res.y = (((v2.y - v0.y) * var1) + (var4 * var2)) / divisor;
-// 	res.z = 1 - res.x - res.y;
-// 	return res;
-// }
 float4 precalculateTriangleBarycentricWeights(float4 const &v0,
 									  float4 const &v1,
 									  float4 const &v2){
 
-auto var0 = v1.y - v2.y;
-auto var4 = v0.x - v2.x;
-auto var5 = v2.x - v1.x;
-auto divisor = (var0 * var4) + (var5 * (v0.y - v2.y));
+auto extract0 = v1.y - v2.y;
+auto extract1 = v0.x - v2.x;
+auto extract2 = v2.x - v1.x;
+auto divisor = (extract0 * extract1) + (extract2 * (v0.y - v2.y));
 
 float4 res;
-res.x = var0;
-res.y = var4;
-res.z = var5;
+res.x = extract0;
+res.y = extract1;
+res.z = extract2;
 res.w = 1/divisor;
 return res;
 
 }
+/*
+* @param precalc precalculated values for this triangle
+* @param v0 vertex 0
+* @param v2 vertex 2
+* @param  x  screen pixel x-coordinate
+* @param  y  screen pixel y-coordinate
+* @return    barycentric weights of the pixel in relation to the triangle vertices
+*/
 float3 continueCalcuateTriangleBarycentricWeights(const float4 &precalc, const float4 &v0,
 	const float4 &v2, unsigned int const &x, unsigned int const &y ){
 
-	auto var1 = x - v2.x;
-	auto var2 = y - v2.y;
+	auto extract0 = x - v2.x;
+	auto extract1 = y - v2.y;
 
 	float3 res;
-	res.x = ((precalc.x * var1) + (precalc.z * var2)) * precalc.w;
-	res.y = (((v2.y - v0.y) * var1) + (precalc.y * var2)) * precalc.w;
+	res.x = ((precalc.x * extract0) + (precalc.z * extract1)) * precalc.w;
+	res.y = (((v2.y - v0.y) * extract0) + (precalc.y * extract1)) * precalc.w;
 	res.z = 1 - res.x - res.y;
 	return res;
 
@@ -298,7 +285,7 @@ void rasteriseTriangles( Mesh &mesh,
 		vertex2 = convertClippingSpace(vertex2, width, height);
 
 		float4 precalc = precalculateTriangleBarycentricWeights(vertex0, vertex1, vertex2);
-		if (precalc.w >= 0.0) {
+		if (precalc.w >= 0.0) { // If divisor is positive, we can skip it with no change in the image.
 			continue;
 		}
 
@@ -306,13 +293,14 @@ void rasteriseTriangles( Mesh &mesh,
 		float4 normal0 = float4(transformedNormalBuffer.at(index0));
 		float4 normal1 = float4(transformedNormalBuffer.at(index1));
 		float4 normal2 = float4(transformedNormalBuffer.at(index2));
-
+		// Array of x coordinates for this triangle
 		const int xcoordinates[] = {ceil(vertex0.x), ceil(vertex1.x), ceil(vertex2.x)};
+		// Array of y coordinates for this triangle
 		const int ycoordinates[] = {ceil(vertex0.y), ceil(vertex1.y), ceil(vertex2.y)};
-
+		// Find max x a nd y coordinate in the triangle.
 		const unsigned int xmax = *std::max_element(xcoordinates, xcoordinates+3);
 		const unsigned int ymax = *std::max_element(ycoordinates, ycoordinates+3);
-
+		// Find min x and y coordingate in the triangle.
 		const unsigned int xmin = *std::min_element(xcoordinates, xcoordinates+3);
 		const unsigned int ymin = *std::min_element(ycoordinates, ycoordinates+3);
 
@@ -320,6 +308,7 @@ void rasteriseTriangles( Mesh &mesh,
 			pixelTimer.start();
 		}
 		// We iterate over each pixel on the screen
+		// No, instead we only iterate over the square surounding the triangle we are rasterizing.
 		for(unsigned int x = xmin; x < xmax; x++) {
 			if (!outerForLoopTimer.isRunning()) {
 				outerForLoopTimer.start();
@@ -349,8 +338,9 @@ void rasteriseTriangles( Mesh &mesh,
 						continue;
 				}
 				//Have we drawn a pixel above the current?
-					// This pixel is going into the frame buffer,
-					// save its depth to skip all next pixels underneath it
+				// This pixel is going into the frame buffer,
+				// save its depth to skip all next pixels underneath it
+				// Save position since it is used several times
 				int position = y * width + x;
 				// Prevents the position going out of bounds for large meshes
 				if (position > depthBuffer.size()) {
@@ -359,8 +349,6 @@ void rasteriseTriangles( Mesh &mesh,
 				if(!(pixelDepth < depthBuffer.at(position))){
 					continue;
 				}
-
-
 				// But since a pixel can lie anywhere between the vertices, we compute an approximated normal
 				// at the pixel location by interpolating the ones from the vertices.
 				float3 interpolatedNormal = interpolateNormals(normal0, normal1, normal2, weight0, weight1, weight2);
@@ -371,7 +359,7 @@ void rasteriseTriangles( Mesh &mesh,
 					interpolatedNormal.y * interpolatedNormal.y +
 					interpolatedNormal.z * interpolatedNormal.z );
 
-				// Turn 3 divisions into 1 divisions and 3 multiplications 30 -> 19
+				// Turn 3 divisions into 1 divisions and 3 multiplications
 				float normalLengthInverse = 1/normalLength;
 
 				interpolatedNormal.x *= normalLengthInverse;
@@ -385,8 +373,9 @@ void rasteriseTriangles( Mesh &mesh,
 				// Copy the calculated pixel colour into the frame buffer - RGBA
 
 				//Coordinate of the current pixel in the framebuffer, remember RGBA color code
+				// Exctract base and shift by 2 instead of multiplying by 4
 				unsigned int pixelBaseCoordinate = (position) << 2;
-
+				// Unrolled colour loop
 				frameBuffer.at(pixelBaseCoordinate + 0) = pixelColour.at(0);
 				frameBuffer.at(pixelBaseCoordinate + 1) = pixelColour.at(1);
 				frameBuffer.at(pixelBaseCoordinate + 2) = pixelColour.at(2);
@@ -437,6 +426,7 @@ void rasterise(Mesh mesh, std::string outputImageFile, unsigned int width, unsig
 	// rasteriseTimer.start();
 	// The framebuffer contains the image being rendered.
 	std::vector<unsigned char> frameBuffer;
+	// Exctract this value since it is used several times
 	const int number_of_pixels = width * height;
 	frameBuffer.resize(number_of_pixels * 4, 0);
 
@@ -454,6 +444,7 @@ void rasterise(Mesh mesh, std::string outputImageFile, unsigned int width, unsig
 	// Initializing the framebuffer with RGBA (0,0,0,255), black, no transparency
 	for (unsigned int x = 0; x < width; x++) {
 		for(unsigned int y = 0; y < height; y++) {
+			// Exctract this value since it is used several times, bitshift instead of multiplication
 			const int size = (x + y * width) << 2;
 			frameBuffer.at(size + 0) = 0;
 			frameBuffer.at(size + 1) = 0;
