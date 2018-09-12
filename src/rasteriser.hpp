@@ -3,4 +3,4 @@
 #include <string>
 #include "utilities/OBJLoader.hpp"
 
-void rasterise(Mesh mesh, std::string outputImageFile, unsigned int width, unsigned int height);
+void rasterise(Mesh &mesh, const std::string &outputImageFile, const unsigned int &width, const unsigned int &height);

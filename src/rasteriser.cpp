@@ -142,6 +142,16 @@ inline float3 interpolateNormals( float4 const n0,
 	res.x = w0 * n0.x + w1 * n1.x + w2 * n2.x;
 	res.y = w0 * n0.y + w1 * n1.y + w2 * n2.y;
 	res.z = w0 * n0.z + w1 * n1.z + w2 * n2.z;
+
+	// Turn 3 divisions into 1 divisions and 3 multiplications
+	float normalLengthInverse = 1/std::sqrt( res.x * res.x +
+		res.y * res.y +
+		res.z * res.z );
+
+	res.x *= normalLengthInverse;
+	res.y *= normalLengthInverse;
+	res.z *= normalLengthInverse;
+
 	return res;
 }
 
@@ -351,23 +361,9 @@ void rasteriseTriangles( Mesh &mesh,
 				}
 				// But since a pixel can lie anywhere between the vertices, we compute an approximated normal
 				// at the pixel location by interpolating the ones from the vertices.
-				float3 interpolatedNormal = interpolateNormals(normal0, normal1, normal2, weight0, weight1, weight2);
-
-				// This process can slightly change the length, so we normalise it here to make sure the lighting calculations
-				// appear correct.
-				float normalLength = std::sqrt( interpolatedNormal.x * interpolatedNormal.x +
-					interpolatedNormal.y * interpolatedNormal.y +
-					interpolatedNormal.z * interpolatedNormal.z );
-
-				// Turn 3 divisions into 1 divisions and 3 multiplications
-				float normalLengthInverse = 1/normalLength;
-
-				interpolatedNormal.x *= normalLengthInverse;
-				interpolatedNormal.y *= normalLengthInverse;
-				interpolatedNormal.z *= normalLengthInverse;
 
 				// And we can now execute the fragment shader to compute this pixel's colour.
-				std::vector<unsigned char> pixelColour = runFragmentShader(interpolatedNormal);
+				std::vector<unsigned char> pixelColour = runFragmentShader(interpolateNormals(normal0, normal1, normal2, weight0, weight1, weight2));
 
 				depthBuffer.at(position) = pixelDepth;
 				// Copy the calculated pixel colour into the frame buffer - RGBA
@@ -420,7 +416,7 @@ void rasteriseTriangles( Mesh &mesh,
  * @param width           width of the output image
  * @param height          height of the output image
  */
-void rasterise(Mesh mesh, std::string outputImageFile, unsigned int width, unsigned int height) {
+void rasterise(Mesh &mesh, const std::string &outputImageFile, const unsigned int &width, const unsigned int &height) {
 	const int number_of_pixels = width * height;
 	// We first need to allocate some buffers.
 	// Timer rasteriseTimer;
