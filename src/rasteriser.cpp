@@ -421,14 +421,21 @@ void rasteriseTriangles( Mesh &mesh,
  * @param height          height of the output image
  */
 void rasterise(Mesh mesh, std::string outputImageFile, unsigned int width, unsigned int height) {
+	const int number_of_pixels = width * height;
 	// We first need to allocate some buffers.
 	// Timer rasteriseTimer;
 	// rasteriseTimer.start();
 	// The framebuffer contains the image being rendered.
 	std::vector<unsigned char> frameBuffer;
 	// Exctract this value since it is used several times
-	const int number_of_pixels = width * height;
-	frameBuffer.resize(number_of_pixels * 4, 0);
+	frameBuffer.resize(number_of_pixels << 2, 0);
+	// Initializing the framebuffer with RGBA (0,0,0,255), black, no transparency
+	for (unsigned int x = 0; x < width; x++) {
+		for(unsigned int y = 0; y < height; y++) {
+			// Exctract this value since it is used several times, bitshift instead of multiplication
+			frameBuffer.at(((x + y * width) << 2) + 3) = 255;
+		}
+	}
 
 	// The depth buffer is used to make sure that objects closer to the camera occlude/obscure objects that are behind it
 	std::vector<float> depthBuffer;
@@ -441,17 +448,6 @@ void rasterise(Mesh mesh, std::string outputImageFile, unsigned int width, unsig
 	std::vector<float4> transformedNormalBuffer;
 	transformedNormalBuffer.resize(mesh.vertexCount);
 
-	// Initializing the framebuffer with RGBA (0,0,0,255), black, no transparency
-	for (unsigned int x = 0; x < width; x++) {
-		for(unsigned int y = 0; y < height; y++) {
-			// Exctract this value since it is used several times, bitshift instead of multiplication
-			const int size = (x + y * width) << 2;
-			frameBuffer.at(size + 0) = 0;
-			frameBuffer.at(size + 1) = 0;
-			frameBuffer.at(size + 2) = 0;
-			frameBuffer.at(size + 3) = 255;
-		}
-	}
 
 	std::cout << "Running the vertex shader... ";
 	runVertexShader(mesh, transformedVertexBuffer, transformedNormalBuffer);
