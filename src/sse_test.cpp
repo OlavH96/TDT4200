@@ -46,30 +46,17 @@ void sse_test(const Mesh* mesh) {
         rand1.push_back(randFloat4());
         rand2.push_back(randFloat4());
         rand3.push_back(randFloat4());
-        rand4.push_back(randFloat4());
+        rand4.push_back(randFloat4());    
     }
     std::cout << "finished!"  << std::endl;
     for (unsigned int loadIterator = 0; loadIterator < loadFactor; loadIterator++) {
         std::cout << "SSE_TEST: " << (loadIterator+1) << "/" << loadFactor << " Crunching numbers on " << vertices.size() << " vertices... " << "\r" << std::flush;
         for (unsigned int i = 0; i < vertices.size(); i++) {
-            vertices[i].elements[0] = (vertices[i].elements[0] + rand1[i].elements[0]
-                                        - rand2[i].elements[0]) * rand3[i].elements[0];
+            vertices[i].vector = (vertices[i].vector + rand1[i].vector - rand2[i].vector) * rand3[i].vector;
 
-            vertices[i].elements[1] = (vertices[i].elements[1] + rand1[i].elements[1]
-                                        - rand2[i].elements[1]) * rand3[i].elements[1];
-
-            vertices[i].elements[2] = (vertices[i].elements[2] + rand1[i].elements[2]
-                                        - rand2[i].elements[2]) * rand3[i].elements[2];
-
-            vertices[i].elements[3] = (vertices[i].elements[3] + rand1[i].elements[3]
-                                        - rand2[i].elements[3]) * rand3[i].elements[3];
-
-            if (rand4[i].elements[0] != 0 && rand4[i].elements[1] != 0 &&
-                rand4[i].elements[2] != 0 && rand4[i].elements[3] != 0) {
-                vertices[i].elements[0] = vertices[i].elements[0] / rand4[i].elements[0];
-                vertices[i].elements[1] = vertices[i].elements[1] / rand4[i].elements[1];
-                vertices[i].elements[2] = vertices[i].elements[2] / rand4[i].elements[2];
-                vertices[i].elements[3] = vertices[i].elements[3] / rand4[i].elements[3];
+            if (rand4[i].vector[0] != 0 && rand4[i].elements[1] != 0
+                && rand4[i].elements[2] != 0 && rand4[i].elements[3] != 0) {
+                vertices[i].vector = vertices[i].vector / rand4[i].vector;
             }
         }
     }
